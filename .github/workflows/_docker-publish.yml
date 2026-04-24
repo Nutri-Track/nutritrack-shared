@@ -1,0 +1,69 @@
+name: _Publish — Docker Build & Push
+on:
+  workflow_call:
+    inputs:
+      image-name:
+        description: "Docker image name"
+        required: true
+        type: string
+      tag:
+        description: "Full image tag to apply"
+        required: true
+        type: string
+      environment:
+        description: "Environment (production/development)"
+        required: true
+        type: string
+    secrets:
+      DOCKER_USERNAME:
+        required: true
+      DOCKER_PASSWORD:
+        required: true
+    outputs:
+      image:
+        description: "Full image reference that was pushed"
+        value: ${{ jobs.publish.outputs.image }}
+
+jobs:
+  publish:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    outputs:
+      image: ${{ steps.set-image.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set image reference
+        id: set-image
+        run: |
+          IMAGE="${{ secrets.DOCKER_USERNAME }}/${{ inputs.image-name }}:${{ inputs.tag }}"
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+
+
+      - name: Check tag does not already exist
+        run: |
+          TOKEN=$(curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"username":"${{ secrets.DOCKER_USERNAME }}","password":"${{ secrets.DOCKER_PASSWORD }}"}' \
+            https://hub.docker.com/v2/users/login | jq -r .token)
+
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: JWT $TOKEN" \
+            "https://hub.docker.com/v2/repositories/${{ secrets.DOCKER_USERNAME }}/${{ inputs.image-name }}/tags/${{ inputs.tag }}/")
+
+          if [ "$STATUS" = "200" ]; then
+            echo "❌ Tag '${{ inputs.tag }}' already exists for image '${{ inputs.image-name }}'. Aborting to prevent overwrite."
+            exit 1
+          else
+            echo "✅ Tag '${{ inputs.tag }}' is new. Proceeding."
+          fi
+
+      - name: Docker login
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      - name: Build & Push
+        run: |
+          docker build -t $IMAGE .
+          docker push $IMAGE
