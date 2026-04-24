@@ -6,7 +6,7 @@ on:
       service-name:
         required: true
         type: string
-        description: "Name of the service folder in fitforge-charts/microservices"
+        description: "Name of the service key in values.yaml (e.g., authService, foodService, frontend)"
       image-tag:
         required: true
         type: string
@@ -22,7 +22,7 @@ on:
     secrets:
       HELM_REPO_PAT:
         required: true
-        description: "PAT with push access to fitforge-charts repo"
+        description: "PAT with push access to nutritrack-charts repo"
 
 jobs:
   update-chart:
@@ -33,7 +33,7 @@ jobs:
       - name: Checkout Charts Repository
         uses: actions/checkout@v4
         with:
-          repository: fitforge101/fitforge-charts
+          repository: Nutri-Track/nutritrack-charts
           token: ${{ secrets.HELM_REPO_PAT }}
           path: charts
           ref: ${{ inputs.branch }}
@@ -43,20 +43,19 @@ jobs:
 
       - name: Update image tag
         run: |
-          FILE="charts/microservices/${{ inputs.service-name }}/values.yaml"
+          FILE="charts/values.yaml"
           if [ -f "$FILE" ]; then
-            echo "Updating $FILE with tag ${{ inputs.image-tag }}"
-            # Update the tag value. Ensure it's treated as a string to preserve formatting.
-            yq -i ".image.tag = \"${{ inputs.image-tag }}\"" "$FILE"
+            echo "Updating $FILE for service ${{ inputs.service-name }} with tag ${{ inputs.image-tag }}"
+            # Target the specific service block in values.yaml (e.g., .authService.image.tag)
+            yq -i ".${{ inputs.service-name }}.image.tag = \"${{ inputs.image-tag }}\"" "$FILE"
           else
-            echo "::error::File not found: $FILE (Is your service-name correct?)"
+            echo "::error::File not found: $FILE"
             exit 1
           fi
 
       - name: Validate values.yaml
         run: |
-          # Ensure the YAML is still valid after modification
-          yq eval '.' "charts/microservices/${{ inputs.service-name }}/values.yaml" > /dev/null
+          yq eval '.' "charts/values.yaml" > /dev/null
 
       - name: Commit and Push changes
         run: |
@@ -64,8 +63,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Stage the specific values file
-          git add microservices/${{ inputs.service-name }}/values.yaml
+          # Stage the unified values file
+          git add values.yaml
           
           if git diff --staged --quiet; then
             echo "No changes detected in values.yaml (tag might already be up to date)"
