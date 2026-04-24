@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     outputs:
-      gate_status: ${{ steps.gate.outputs.status }}
+      gate_status: ${{ steps.set_gate.outputs.status }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -53,6 +53,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: Set Gate Output
+        id: set_gate
         if: always()
         run: |
           echo "status=${{ steps.gate.outcome }}" >> $GITHUB_OUTPUT
