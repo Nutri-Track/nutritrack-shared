@@ -17,18 +17,18 @@ on:
         required: true
       SONAR_URL:
         required: true
-    outputs:
-      quality-gate:
-        description: "Quality gate result (passed/failed)"
-        value: ${{ jobs.sast.outputs.gate_status }}
+    # outputs:
+    #   quality-gate:
+    #     description: "Quality gate result (passed/failed)"
+    #     value: ${{ jobs.sast.outputs.gate_status }}
 
 jobs:
   sast:
     name: SonarQube Analysis
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
-    outputs:
-      gate_status: ${{ steps.set_gate.outputs.status }}
+    # outputs:
+    #   gate_status: ${{ steps.set_gate.outputs.status }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
